@@ -1,3 +1,24 @@
+# My Dev setup 
+-------
+
+for my modified rtpbasepayloader and so on
+
+
+clone the git submodule
+
+```bash
+mkdir install
+meson build --prefix $(pwd)/install
+```
+
+gst-plugins-base-libs **must not** be installed in the system. otherwise the changes in subprojects/gst-plugins-base are not taken.
+ninja will build everything and install (there are >1100 tasks.. it might take a while)
+
+
+
+
+
+
 GStreamer 1.12.x stable series
 
 WHAT IT IS

@@ -1,3 +1,7 @@
 [submodule "common"]
         path = common
         url = https://anongit.freedesktop.org/git/gstreamer/common.git
+[submodule "subprojects/gst-plugins-base"]
+	path = subprojects/gst-plugins-base
+	url = git@github.com:stfl/gst-plugins-base.git
+   branch = 1.12
