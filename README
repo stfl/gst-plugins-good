@@ -7,12 +7,17 @@ for my modified rtpbasepayloader and so on
 clone the git submodule
 
 ```bash
-mkdir install
 meson build --prefix $(pwd)/install
+
+cd build 
+mesonconf -D gst-plugins-base:disable_gtkdoc=true 
+meson build
 ```
 
 gst-plugins-base-libs **must not** be installed in the system. otherwise the changes in subprojects/gst-plugins-base are not taken.
-ninja will build everything and install (there are >1100 tasks.. it might take a while)
+ninja will build everything and install (there are >1160 tasks.. it might take a while)
+
+
 
 
 

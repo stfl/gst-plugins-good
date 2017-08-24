@@ -32,17 +32,17 @@ augroup MyProject
    autocmd!
    autocmd BufNewFile,BufRead *.[ch] set filetype=c
 
-   autocmd BufWritePost *.[ch] Neomake! install
+   " autocmd BufWritePost *.[ch] Neomake! install
 
-   autocmd User NeomakeFinished call OnNeomakeFinished()
+   " autocmd User NeomakeFinished call OnNeomakeFinished()
 augroup END
 
-function! OnNeomakeFinished()
-   let context = g:neomake_hook_context
-   if (context.jobinfo.exit_code == 0)
-      echom "build gst-plugins-base|good finished successfully!" 
-   endif
-endfunction
+" function! OnNeomakeFinished()
+"    let context = g:neomake_hook_context
+"    if (context.jobinfo.exit_code == 0)
+"       echom "build gst-plugins-base|good finished successfully!"
+"    endif
+" endfunction
 
 " fold preprocessor #ifdef
 nnoremap zn 0zf%
