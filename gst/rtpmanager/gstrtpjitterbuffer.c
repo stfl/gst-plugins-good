@@ -112,6 +112,8 @@
 #include "rtpjitterbuffer.h"
 #include "rtpstats.h"
 
+#include <sys/time.h>
+
 #include <gst/glib-compat-private.h>
 
 GST_DEBUG_CATEGORY (rtpjitterbuffer_debug);
@@ -148,6 +150,7 @@ enum
 #define DEFAULT_MAX_RTCP_RTP_TIME_DIFF 1000
 #define DEFAULT_MAX_DROPOUT_TIME    60000
 #define DEFAULT_MAX_MISORDER_TIME   2000
+#define DEFAULT_DEADLINE_US         300000
 #define DEFAULT_RFC7273_SYNC        FALSE
 
 #define DEFAULT_AUTO_RTX_DELAY (20 * GST_MSECOND)
@@ -177,7 +180,9 @@ enum
   PROP_MAX_RTCP_RTP_TIME_DIFF,
   PROP_MAX_DROPOUT_TIME,
   PROP_MAX_MISORDER_TIME,
-  PROP_RFC7273_SYNC
+  PROP_RFC7273_SYNC,
+  PROP_DEADLINE,
+  PROP_SYSTIME_OFFSET,
 };
 
 #define JBUF_LOCK(priv)   G_STMT_START {			\
@@ -295,6 +300,9 @@ struct _GstRtpJitterBufferPrivate
   guint32 max_dropout_time;
   guint32 max_misorder_time;
 
+  guint32 systime_offset;
+  guint32 deadline;             // in us
+
   /* the last seqnum we pushed out */
   guint32 last_popped_seqnum;
   /* the next expected seqnum we push */
@@ -356,6 +364,9 @@ struct _GstRtpJitterBufferPrivate
   guint64 num_lost;
   guint64 num_late;
   guint64 num_duplicates;
+  guint64 num_old_dropped;
+  guint64 num_deadline_missed;
+  guint64 num_deadline_hit;
   guint64 num_rtx_requests;
   guint64 num_rtx_success;
   guint64 num_rtx_failed;
@@ -851,6 +862,16 @@ gst_rtp_jitter_buffer_class_init (GstRtpJitterBufferClass * klass)
           "(requires clock and offset to be provided)", DEFAULT_RFC7273_SYNC,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (gobject_class, PROP_DEADLINE,
+      g_param_spec_uint ("deadline", "Deadline in us",
+          "Deadline for playback in us", 0, G_MAXUINT, DEFAULT_DEADLINE_US,
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class, PROP_SYSTIME_OFFSET,
+      g_param_spec_uint ("systime-offset", "offset to system time in seconds",
+          "offset to system time in seconds to fit the gettimeofday timestamp into uint32 rtp timestamp",
+          0, G_MAXUINT, 0, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
   /**
    * GstRtpJitterBuffer::request-pt-map:
    * @buffer: the object which received the signal
@@ -942,6 +963,7 @@ gst_rtp_jitter_buffer_class_init (GstRtpJitterBufferClass * klass)
       "Philippe Kalaf <philippe.kalaf@collabora.co.uk>, "
       "Wim Taymans <wim.taymans@gmail.com>");
 
+
   klass->clear_pt_map = GST_DEBUG_FUNCPTR (gst_rtp_jitter_buffer_clear_pt_map);
   klass->set_active = GST_DEBUG_FUNCPTR (gst_rtp_jitter_buffer_set_active);
 
@@ -975,6 +997,8 @@ gst_rtp_jitter_buffer_init (GstRtpJitterBuffer * jitterbuffer)
   priv->max_rtcp_rtp_time_diff = DEFAULT_MAX_RTCP_RTP_TIME_DIFF;
   priv->max_dropout_time = DEFAULT_MAX_DROPOUT_TIME;
   priv->max_misorder_time = DEFAULT_MAX_MISORDER_TIME;
+  priv->deadline = DEFAULT_DEADLINE_US;
+  priv->systime_offset = 0;
 
   priv->last_dts = -1;
   priv->last_rtptime = -1;
@@ -3292,6 +3316,7 @@ static GstFlowReturn
 pop_and_push_next (GstRtpJitterBuffer * jitterbuffer, guint seqnum)
 {
   GstRtpJitterBufferPrivate *priv = jitterbuffer->priv;
+  RTPJitterBuffer *jbuf = jitterbuffer->priv->jbuf;
   GstFlowReturn result = GST_FLOW_OK;
   RTPJitterBufferItem *item;
   GstBuffer *outbuf = NULL;
@@ -3380,6 +3405,30 @@ pop_and_push_next (GstRtpJitterBuffer * jitterbuffer, guint seqnum)
       result = gst_pad_push (priv->srcpad, outbuf);
 
       JBUF_LOCK_CHECK (priv, out_flushing);
+
+      /* check if the deadline as considered for DPR was missed */
+      GstClockTime rtp_timestamp_unscaled =
+          gst_util_uint64_scale_int ((guint64) item->rtptime,
+          GST_SECOND, (gint) rtp_jitter_buffer_get_clock_rate (jbuf));
+      GstClockTime deadline = rtp_timestamp_unscaled + priv->deadline * 1000;
+
+      struct timeval now;
+      gettimeofday (&now, NULL);
+      now.tv_sec -= priv->systime_offset;
+      GstClockTime now_gst_time = (guint64) ((guint64) now.tv_sec * GST_SECOND
+          + (guint64) now.tv_usec * 1000);
+
+      GST_INFO_OBJECT (jitterbuffer,
+          "now: %" GST_TIME_FORMAT " RTP Timestamp (unscaled) %" GST_TIME_FORMAT
+          ", deadline %" GST_TIME_FORMAT "\t%s", GST_TIME_ARGS (now_gst_time),
+          GST_TIME_ARGS (rtp_timestamp_unscaled), GST_TIME_ARGS (deadline),
+          now_gst_time >= deadline ? "MISS" : "HIT");
+
+      if (now_gst_time >= deadline)
+        priv->num_deadline_missed++;
+      else
+        priv->num_deadline_hit++;
+
       break;
     case ITEM_TYPE_LOST:
     case ITEM_TYPE_EVENT:
@@ -3482,6 +3531,7 @@ handle_next_buffer (GstRtpJitterBuffer * jitterbuffer)
        * off and get the next packet */
       GST_DEBUG_OBJECT (jitterbuffer, "Old packet #%d, next #%d dropping",
           seqnum, next_seqnum);
+      priv->num_old_dropped++;
       item = rtp_jitter_buffer_pop (priv->jbuf, NULL);
       free_item (item);
       result = GST_FLOW_OK;
@@ -4508,6 +4558,17 @@ gst_rtp_jitter_buffer_set_property (GObject * object,
       priv->max_misorder_time = g_value_get_uint (value);
       JBUF_UNLOCK (priv);
       break;
+    case PROP_DEADLINE:
+      JBUF_LOCK (priv);
+      priv->deadline = g_value_get_uint (value);
+      JBUF_UNLOCK (priv);
+      break;
+    case PROP_SYSTIME_OFFSET:
+      JBUF_LOCK (priv);
+      priv->systime_offset = g_value_get_uint (value);
+      JBUF_UNLOCK (priv);
+      break;
+
     case PROP_RFC7273_SYNC:
       JBUF_LOCK (priv);
       rtp_jitter_buffer_set_rfc7273_sync (priv->jbuf,
@@ -4644,6 +4705,16 @@ gst_rtp_jitter_buffer_get_property (GObject * object,
       g_value_set_uint (value, priv->max_misorder_time);
       JBUF_UNLOCK (priv);
       break;
+    case PROP_DEADLINE:
+      JBUF_LOCK (priv);
+      g_value_set_uint (value, priv->deadline);
+      JBUF_UNLOCK (priv);
+      break;
+    case PROP_SYSTIME_OFFSET:
+      JBUF_LOCK (priv);
+      g_value_set_uint (value, priv->systime_offset);
+      JBUF_UNLOCK (priv);
+      break;
     case PROP_RFC7273_SYNC:
       JBUF_LOCK (priv);
       g_value_set_boolean (value,
@@ -4668,6 +4739,11 @@ gst_rtp_jitter_buffer_create_stats (GstRtpJitterBuffer * jbuf)
       "num-lost", G_TYPE_UINT64, priv->num_lost,
       "num-late", G_TYPE_UINT64, priv->num_late,
       "num-duplicates", G_TYPE_UINT64, priv->num_duplicates,
+      "num-old-dropped", G_TYPE_UINT64, priv->num_old_dropped,
+      "num-deadline-missed", G_TYPE_UINT64, priv->num_deadline_missed,
+      "num-deadline-hit", G_TYPE_UINT64, priv->num_deadline_hit,
+      /* "ddr", G_TYPE_DOUBLE, (gdouble) ((gdouble)priv->within_deadline_cnt / */
+      /* (gdouble)(priv->within_deadline_cnt + priv->missed_deadline_cnt)), NULL); */
       "avg-jitter", G_TYPE_UINT64, priv->avg_jitter,
       "rtx-count", G_TYPE_UINT64, priv->num_rtx_requests,
       "rtx-success-count", G_TYPE_UINT64, priv->num_rtx_success,
