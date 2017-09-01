@@ -185,71 +185,71 @@ enum
   PROP_SYSTIME_OFFSET,
 };
 
-#define JBUF_LOCK(priv)   G_STMT_START {			\
-    GST_TRACE("Locking from thread %p", g_thread_self());	\
-    (g_mutex_lock (&(priv)->jbuf_lock));			\
-    GST_TRACE("Locked from thread %p", g_thread_self());	\
-  } G_STMT_END
+#define JBUF_LOCK(priv)   G_STMT_START {        \
+   GST_TRACE("Locking from thread %p", g_thread_self()); \
+   (g_mutex_lock (&(priv)->jbuf_lock));         \
+   GST_TRACE("Locked from thread %p", g_thread_self());  \
+} G_STMT_END
 
 #define JBUF_LOCK_CHECK(priv,label) G_STMT_START {    \
-  JBUF_LOCK (priv);                                   \
-  if (G_UNLIKELY (priv->srcresult != GST_FLOW_OK))    \
-    goto label;                                       \
+   JBUF_LOCK (priv);                                   \
+   if (G_UNLIKELY (priv->srcresult != GST_FLOW_OK))    \
+   goto label;                                       \
 } G_STMT_END
-#define JBUF_UNLOCK(priv) G_STMT_START {			\
-    GST_TRACE ("Unlocking from thread %p", g_thread_self ());	\
-    (g_mutex_unlock (&(priv)->jbuf_lock));			\
+#define JBUF_UNLOCK(priv) G_STMT_START {        \
+   GST_TRACE ("Unlocking from thread %p", g_thread_self ());   \
+   (g_mutex_unlock (&(priv)->jbuf_lock));       \
 } G_STMT_END
 
 #define JBUF_WAIT_TIMER(priv)   G_STMT_START {            \
-  GST_DEBUG ("waiting timer");                            \
-  (priv)->waiting_timer = TRUE;                           \
-  g_cond_wait (&(priv)->jbuf_timer, &(priv)->jbuf_lock);  \
-  (priv)->waiting_timer = FALSE;                          \
-  GST_DEBUG ("waiting timer done");                       \
+   GST_DEBUG ("waiting timer");                            \
+   (priv)->waiting_timer = TRUE;                           \
+   g_cond_wait (&(priv)->jbuf_timer, &(priv)->jbuf_lock);  \
+   (priv)->waiting_timer = FALSE;                          \
+   GST_DEBUG ("waiting timer done");                       \
 } G_STMT_END
 #define JBUF_SIGNAL_TIMER(priv) G_STMT_START {            \
-  if (G_UNLIKELY ((priv)->waiting_timer)) {               \
-    GST_DEBUG ("signal timer");                           \
-    g_cond_signal (&(priv)->jbuf_timer);                  \
-  }                                                       \
+   if (G_UNLIKELY ((priv)->waiting_timer)) {               \
+      GST_DEBUG ("signal timer");                           \
+      g_cond_signal (&(priv)->jbuf_timer);                  \
+   }                                                       \
 } G_STMT_END
 
 #define JBUF_WAIT_EVENT(priv,label) G_STMT_START {       \
-  GST_DEBUG ("waiting event");                           \
-  (priv)->waiting_event = TRUE;                          \
-  g_cond_wait (&(priv)->jbuf_event, &(priv)->jbuf_lock); \
-  (priv)->waiting_event = FALSE;                         \
-  GST_DEBUG ("waiting event done");                      \
-  if (G_UNLIKELY (priv->srcresult != GST_FLOW_OK))       \
-    goto label;                                          \
+   GST_DEBUG ("waiting event");                           \
+   (priv)->waiting_event = TRUE;                          \
+   g_cond_wait (&(priv)->jbuf_event, &(priv)->jbuf_lock); \
+   (priv)->waiting_event = FALSE;                         \
+   GST_DEBUG ("waiting event done");                      \
+   if (G_UNLIKELY (priv->srcresult != GST_FLOW_OK))       \
+   goto label;                                          \
 } G_STMT_END
 #define JBUF_SIGNAL_EVENT(priv) G_STMT_START {           \
-  if (G_UNLIKELY ((priv)->waiting_event)) {              \
-    GST_DEBUG ("signal event");                          \
-    g_cond_signal (&(priv)->jbuf_event);                 \
-  }                                                      \
+   if (G_UNLIKELY ((priv)->waiting_event)) {              \
+      GST_DEBUG ("signal event");                          \
+      g_cond_signal (&(priv)->jbuf_event);                 \
+   }                                                      \
 } G_STMT_END
 
 #define JBUF_WAIT_QUERY(priv,label) G_STMT_START {       \
-  GST_DEBUG ("waiting query");                           \
-  (priv)->waiting_query = TRUE;                          \
-  g_cond_wait (&(priv)->jbuf_query, &(priv)->jbuf_lock); \
-  (priv)->waiting_query = FALSE;                         \
-  GST_DEBUG ("waiting query done");                      \
-  if (G_UNLIKELY (priv->srcresult != GST_FLOW_OK))       \
-    goto label;                                          \
+   GST_DEBUG ("waiting query");                           \
+   (priv)->waiting_query = TRUE;                          \
+   g_cond_wait (&(priv)->jbuf_query, &(priv)->jbuf_lock); \
+   (priv)->waiting_query = FALSE;                         \
+   GST_DEBUG ("waiting query done");                      \
+   if (G_UNLIKELY (priv->srcresult != GST_FLOW_OK))       \
+   goto label;                                          \
 } G_STMT_END
 #define JBUF_SIGNAL_QUERY(priv,res) G_STMT_START {       \
-  (priv)->last_query = res;                              \
-  if (G_UNLIKELY ((priv)->waiting_query)) {              \
-    GST_DEBUG ("signal query");                          \
-    g_cond_signal (&(priv)->jbuf_query);                 \
-  }                                                      \
+   (priv)->last_query = res;                              \
+   if (G_UNLIKELY ((priv)->waiting_query)) {              \
+      GST_DEBUG ("signal query");                          \
+      g_cond_signal (&(priv)->jbuf_query);                 \
+   }                                                      \
 } G_STMT_END
 
 #define GST_BUFFER_IS_RETRANSMISSION(buffer) \
-  GST_BUFFER_FLAG_IS_SET (buffer, GST_RTP_BUFFER_FLAG_RETRANSMISSION)
+   GST_BUFFER_FLAG_IS_SET (buffer, GST_RTP_BUFFER_FLAG_RETRANSMISSION)
 
 typedef struct TimerQueue
 {
@@ -374,6 +374,9 @@ struct _GstRtpJitterBufferPrivate
   guint64 avg_rtx_rtt;
   RTPPacketRateCtx packet_rate_ctx;
 
+  guint64 avg_delay_hit;
+  guint64 avg_delay_pushed;
+
   /* for the jitter */
   GstClockTime last_dts;
   guint64 last_rtptime;
@@ -405,8 +408,8 @@ typedef struct
 } TimerData;
 
 #define GST_RTP_JITTER_BUFFER_GET_PRIVATE(o) \
-  (G_TYPE_INSTANCE_GET_PRIVATE ((o), GST_TYPE_RTP_JITTER_BUFFER, \
-                                GstRtpJitterBufferPrivate))
+   (G_TYPE_INSTANCE_GET_PRIVATE ((o), GST_TYPE_RTP_JITTER_BUFFER, \
+                                 GstRtpJitterBufferPrivate))
 
 static GstStaticPadTemplate gst_rtp_jitter_buffer_sink_template =
 GST_STATIC_PAD_TEMPLATE ("sink",
@@ -525,231 +528,231 @@ gst_rtp_jitter_buffer_class_init (GstRtpJitterBufferClass * klass)
   gobject_class->set_property = gst_rtp_jitter_buffer_set_property;
   gobject_class->get_property = gst_rtp_jitter_buffer_get_property;
 
-  /**
-   * GstRtpJitterBuffer:latency:
-   *
-   * The maximum latency of the jitterbuffer. Packets will be kept in the buffer
-   * for at most this time.
-   */
+   /**
+    * GstRtpJitterBuffer:latency:
+    *
+    * The maximum latency of the jitterbuffer. Packets will be kept in the buffer
+    * for at most this time.
+    */
   g_object_class_install_property (gobject_class, PROP_LATENCY,
       g_param_spec_uint ("latency", "Buffer latency in ms",
           "Amount of ms to buffer", 0, G_MAXUINT, DEFAULT_LATENCY_MS,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-  /**
-   * GstRtpJitterBuffer:drop-on-latency:
-   *
-   * Drop oldest buffers when the queue is completely filled.
-   */
+   /**
+    * GstRtpJitterBuffer:drop-on-latency:
+    *
+    * Drop oldest buffers when the queue is completely filled.
+    */
   g_object_class_install_property (gobject_class, PROP_DROP_ON_LATENCY,
       g_param_spec_boolean ("drop-on-latency",
           "Drop buffers when maximum latency is reached",
           "Tells the jitterbuffer to never exceed the given latency in size",
           DEFAULT_DROP_ON_LATENCY, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-  /**
-   * GstRtpJitterBuffer:ts-offset:
-   *
-   * Adjust GStreamer output buffer timestamps in the jitterbuffer with offset.
-   * This is mainly used to ensure interstream synchronisation.
-   */
+   /**
+    * GstRtpJitterBuffer:ts-offset:
+    *
+    * Adjust GStreamer output buffer timestamps in the jitterbuffer with offset.
+    * This is mainly used to ensure interstream synchronisation.
+    */
   g_object_class_install_property (gobject_class, PROP_TS_OFFSET,
       g_param_spec_int64 ("ts-offset", "Timestamp Offset",
           "Adjust buffer timestamps with offset in nanoseconds", G_MININT64,
           G_MAXINT64, DEFAULT_TS_OFFSET,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
-  /**
-   * GstRtpJitterBuffer:do-lost:
-   *
-   * Send out a GstRTPPacketLost event downstream when a packet is considered
-   * lost.
-   */
+   /**
+    * GstRtpJitterBuffer:do-lost:
+    *
+    * Send out a GstRTPPacketLost event downstream when a packet is considered
+    * lost.
+    */
   g_object_class_install_property (gobject_class, PROP_DO_LOST,
       g_param_spec_boolean ("do-lost", "Do Lost",
           "Send an event downstream when a packet is lost", DEFAULT_DO_LOST,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
-  /**
-   * GstRtpJitterBuffer:mode:
-   *
-   * Control the buffering and timestamping mode used by the jitterbuffer.
-   */
+   /**
+    * GstRtpJitterBuffer:mode:
+    *
+    * Control the buffering and timestamping mode used by the jitterbuffer.
+    */
   g_object_class_install_property (gobject_class, PROP_MODE,
       g_param_spec_enum ("mode", "Mode",
           "Control the buffering algorithm in use", RTP_TYPE_JITTER_BUFFER_MODE,
           DEFAULT_MODE, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-  /**
-   * GstRtpJitterBuffer:percent:
-   *
-   * The percent of the jitterbuffer that is filled.
-   */
+   /**
+    * GstRtpJitterBuffer:percent:
+    *
+    * The percent of the jitterbuffer that is filled.
+    */
   g_object_class_install_property (gobject_class, PROP_PERCENT,
       g_param_spec_int ("percent", "percent",
           "The buffer filled percent", 0, 100,
           0, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
-  /**
-   * GstRtpJitterBuffer:do-retransmission:
-   *
-   * Send out a GstRTPRetransmission event upstream when a packet is considered
-   * late and should be retransmitted.
-   *
-   * Since: 1.2
-   */
+   /**
+    * GstRtpJitterBuffer:do-retransmission:
+    *
+    * Send out a GstRTPRetransmission event upstream when a packet is considered
+    * late and should be retransmitted.
+    *
+    * Since: 1.2
+    */
   g_object_class_install_property (gobject_class, PROP_DO_RETRANSMISSION,
       g_param_spec_boolean ("do-retransmission", "Do Retransmission",
           "Send retransmission events upstream when a packet is late",
           DEFAULT_DO_RETRANSMISSION,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
-  /**
-   * GstRtpJitterBuffer:rtx-next-seqnum
-   *
-   * Estimate when the next packet should arrive and schedule a retransmission
-   * request for it.
-   * This is, when packet N arrives, a GstRTPRetransmission event is schedule
-   * for packet N+1. So it will be requested if it does not arrive at the expected time.
-   * The expected time is calculated using the dts of N and the packet spacing.
-   *
-   * Since: 1.6
-   */
+   /**
+    * GstRtpJitterBuffer:rtx-next-seqnum
+    *
+    * Estimate when the next packet should arrive and schedule a retransmission
+    * request for it.
+    * This is, when packet N arrives, a GstRTPRetransmission event is schedule
+    * for packet N+1. So it will be requested if it does not arrive at the expected time.
+    * The expected time is calculated using the dts of N and the packet spacing.
+    *
+    * Since: 1.6
+    */
   g_object_class_install_property (gobject_class, PROP_RTX_NEXT_SEQNUM,
       g_param_spec_boolean ("rtx-next-seqnum", "RTX next seqnum",
           "Estimate when the next packet should arrive and schedule a "
           "retransmission request for it.",
           DEFAULT_RTX_NEXT_SEQNUM, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
-  /**
-   * GstRtpJitterBuffer:rtx-delay:
-   *
-   * When a packet did not arrive at the expected time, wait this extra amount
-   * of time before sending a retransmission event.
-   *
-   * When -1 is used, the max jitter will be used as extra delay.
-   *
-   * Since: 1.2
-   */
+   /**
+    * GstRtpJitterBuffer:rtx-delay:
+    *
+    * When a packet did not arrive at the expected time, wait this extra amount
+    * of time before sending a retransmission event.
+    *
+    * When -1 is used, the max jitter will be used as extra delay.
+    *
+    * Since: 1.2
+    */
   g_object_class_install_property (gobject_class, PROP_RTX_DELAY,
       g_param_spec_int ("rtx-delay", "RTX Delay",
           "Extra time in ms to wait before sending retransmission "
           "event (-1 automatic)", -1, G_MAXINT, DEFAULT_RTX_DELAY,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
-  /**
-   * GstRtpJitterBuffer:rtx-min-delay:
-   *
-   * When a packet did not arrive at the expected time, wait at least this extra amount
-   * of time before sending a retransmission event.
-   *
-   * Since: 1.6
-   */
+   /**
+    * GstRtpJitterBuffer:rtx-min-delay:
+    *
+    * When a packet did not arrive at the expected time, wait at least this extra amount
+    * of time before sending a retransmission event.
+    *
+    * Since: 1.6
+    */
   g_object_class_install_property (gobject_class, PROP_RTX_MIN_DELAY,
       g_param_spec_uint ("rtx-min-delay", "Minimum RTX Delay",
           "Minimum time in ms to wait before sending retransmission "
           "event", 0, G_MAXUINT, DEFAULT_RTX_MIN_DELAY,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-  /**
-   * GstRtpJitterBuffer:rtx-delay-reorder:
-   *
-   * Assume that a retransmission event should be sent when we see
-   * this much packet reordering.
-   *
-   * When -1 is used, the value will be estimated based on observed packet
-   * reordering. When 0 is used packet reordering alone will not cause a
-   * retransmission event (Since 1.10).
-   *
-   * Since: 1.2
-   */
+   /**
+    * GstRtpJitterBuffer:rtx-delay-reorder:
+    *
+    * Assume that a retransmission event should be sent when we see
+    * this much packet reordering.
+    *
+    * When -1 is used, the value will be estimated based on observed packet
+    * reordering. When 0 is used packet reordering alone will not cause a
+    * retransmission event (Since 1.10).
+    *
+    * Since: 1.2
+    */
   g_object_class_install_property (gobject_class, PROP_RTX_DELAY_REORDER,
       g_param_spec_int ("rtx-delay-reorder", "RTX Delay Reorder",
           "Sending retransmission event when this much reordering "
           "(0 disable, -1 automatic)",
           -1, G_MAXINT, DEFAULT_RTX_DELAY_REORDER,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-  /**
-   * GstRtpJitterBuffer::rtx-retry-timeout:
-   *
-   * When no packet has been received after sending a retransmission event
-   * for this time, retry sending a retransmission event.
-   *
-   * When -1 is used, the value will be estimated based on observed round
-   * trip time.
-   *
-   * Since: 1.2
-   */
+   /**
+    * GstRtpJitterBuffer::rtx-retry-timeout:
+    *
+    * When no packet has been received after sending a retransmission event
+    * for this time, retry sending a retransmission event.
+    *
+    * When -1 is used, the value will be estimated based on observed round
+    * trip time.
+    *
+    * Since: 1.2
+    */
   g_object_class_install_property (gobject_class, PROP_RTX_RETRY_TIMEOUT,
       g_param_spec_int ("rtx-retry-timeout", "RTX Retry Timeout",
           "Retry sending a transmission event after this timeout in "
           "ms (-1 automatic)", -1, G_MAXINT, DEFAULT_RTX_RETRY_TIMEOUT,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-  /**
-   * GstRtpJitterBuffer::rtx-min-retry-timeout:
-   *
-   * The minimum amount of time between retry timeouts. When
-   * GstRtpJitterBuffer::rtx-retry-timeout is -1, this value ensures a
-   * minimum interval between retry timeouts.
-   *
-   * When -1 is used, the value will be estimated based on the
-   * packet spacing.
-   *
-   * Since: 1.6
-   */
+   /**
+    * GstRtpJitterBuffer::rtx-min-retry-timeout:
+    *
+    * The minimum amount of time between retry timeouts. When
+    * GstRtpJitterBuffer::rtx-retry-timeout is -1, this value ensures a
+    * minimum interval between retry timeouts.
+    *
+    * When -1 is used, the value will be estimated based on the
+    * packet spacing.
+    *
+    * Since: 1.6
+    */
   g_object_class_install_property (gobject_class, PROP_RTX_MIN_RETRY_TIMEOUT,
       g_param_spec_int ("rtx-min-retry-timeout", "RTX Min Retry Timeout",
           "Minimum timeout between sending a transmission event in "
           "ms (-1 automatic)", -1, G_MAXINT, DEFAULT_RTX_MIN_RETRY_TIMEOUT,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-  /**
-   * GstRtpJitterBuffer:rtx-retry-period:
-   *
-   * The amount of time to try to get a retransmission.
-   *
-   * When -1 is used, the value will be estimated based on the jitterbuffer
-   * latency and the observed round trip time.
-   *
-   * Since: 1.2
-   */
+   /**
+    * GstRtpJitterBuffer:rtx-retry-period:
+    *
+    * The amount of time to try to get a retransmission.
+    *
+    * When -1 is used, the value will be estimated based on the jitterbuffer
+    * latency and the observed round trip time.
+    *
+    * Since: 1.2
+    */
   g_object_class_install_property (gobject_class, PROP_RTX_RETRY_PERIOD,
       g_param_spec_int ("rtx-retry-period", "RTX Retry Period",
           "Try to get a retransmission for this many ms "
           "(-1 automatic)", -1, G_MAXINT, DEFAULT_RTX_RETRY_PERIOD,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-  /**
-   * GstRtpJitterBuffer:rtx-max-retries:
-   *
-   * The maximum number of retries to request a retransmission.
-   *
-   * This implies that as maximum (rtx-max-retries + 1) retransmissions will be requested.
-   * When -1 is used, the number of retransmission request will not be limited.
-   *
-   * Since: 1.6
-   */
+   /**
+    * GstRtpJitterBuffer:rtx-max-retries:
+    *
+    * The maximum number of retries to request a retransmission.
+    *
+    * This implies that as maximum (rtx-max-retries + 1) retransmissions will be requested.
+    * When -1 is used, the number of retransmission request will not be limited.
+    *
+    * Since: 1.6
+    */
   g_object_class_install_property (gobject_class, PROP_RTX_MAX_RETRIES,
       g_param_spec_int ("rtx-max-retries", "RTX Max Retries",
           "The maximum number of retries to request a retransmission. "
           "(-1 not limited)", -1, G_MAXINT, DEFAULT_RTX_MAX_RETRIES,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-  /**
-   * GstRtpJitterBuffer:rtx-deadline:
-   *
-   * The deadline for a valid RTX request in ms.
-   *
-   * How long the RTX RTCP will be valid for.
-   * When -1 is used, the size of the jitterbuffer will be used.
-   *
-   * Since: 1.10
-   */
+   /**
+    * GstRtpJitterBuffer:rtx-deadline:
+    *
+    * The deadline for a valid RTX request in ms.
+    *
+    * How long the RTX RTCP will be valid for.
+    * When -1 is used, the size of the jitterbuffer will be used.
+    *
+    * Since: 1.10
+    */
   g_object_class_install_property (gobject_class, PROP_RTX_DEADLINE,
       g_param_spec_int ("rtx-deadline", "RTX Deadline (ms)",
           "The deadline for a valid RTX request in milliseconds. "
           "(-1 automatic)", -1, G_MAXINT, DEFAULT_RTX_DEADLINE,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-/**
-   * GstRtpJitterBuffer::rtx-stats-timeout:
-   *
-   * The time to wait for a retransmitted packet after it has been
-   * considered lost in order to collect RTX statistics.
-   *
-   * Since: 1.10
-   */
+   /**
+    * GstRtpJitterBuffer::rtx-stats-timeout:
+    *
+    * The time to wait for a retransmitted packet after it has been
+    * considered lost in order to collect RTX statistics.
+    *
+    * Since: 1.10
+    */
   g_object_class_install_property (gobject_class, PROP_RTX_STATS_TIMEOUT,
       g_param_spec_uint ("rtx-stats-timeout", "RTX Statistics Timeout",
           "The time to wait for a retransmitted packet after it has been "
@@ -768,87 +771,87 @@ gst_rtp_jitter_buffer_class_init (GstRtpJitterBufferClass * klass)
           "The maximum time (milliseconds) of misordered packets tolerated.",
           0, G_MAXUINT, DEFAULT_MAX_MISORDER_TIME,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-  /**
-   * GstRtpJitterBuffer:stats:
-   *
-   * Various jitterbuffer statistics. This property returns a GstStructure
-   * with name application/x-rtp-jitterbuffer-stats with the following fields:
-   *
-   * <itemizedlist>
-   * <listitem>
-   *   <para>
-   *   #guint64
-   *   <classname>&quot;num-pushed&quot;</classname>:
-   *   the number of packets pushed out.
-   *   </para>
-   * </listitem>
-   * <listitem>
-   *   <para>
-   *   #guint64
-   *   <classname>&quot;num-lost&quot;</classname>:
-   *   the number of packets considered lost.
-   *   </para>
-   * </listitem>
-   * <listitem>
-   *   <para>
-   *   #guint64
-   *   <classname>&quot;num-late&quot;</classname>:
-   *   the number of packets arriving too late.
-   *   </para>
-   * </listitem>
-   * <listitem>
-   *   <para>
-   *   #guint64
-   *   <classname>&quot;num-duplicates&quot;</classname>:
-   *   the number of duplicate packets.
-   *   </para>
-   * </listitem>
-   * <listitem>
-   *   <para>
-   *   #guint64
-   *   <classname>&quot;rtx-count&quot;</classname>:
-   *   the number of retransmissions requested.
-   *   </para>
-   * </listitem>
-   * <listitem>
-   *   <para>
-   *   #guint64
-   *   <classname>&quot;rtx-success-count&quot;</classname>:
-   *   the number of successful retransmissions.
-   *   </para>
-   * </listitem>
-   * <listitem>
-   *   <para>
-   *   #gdouble
-   *   <classname>&quot;rtx-per-packet&quot;</classname>:
-   *   average number of RTX per packet.
-   *   </para>
-   * </listitem>
-   * <listitem>
-   *   <para>
-   *   #guint64
-   *   <classname>&quot;rtx-rtt&quot;</classname>:
-   *   average round trip time per RTX.
-   *   </para>
-   * </listitem>
-   * </itemizedlist>
-   *
-   * Since: 1.4
-   */
+   /**
+    * GstRtpJitterBuffer:stats:
+    *
+    * Various jitterbuffer statistics. This property returns a GstStructure
+    * with name application/x-rtp-jitterbuffer-stats with the following fields:
+    *
+    * <itemizedlist>
+    * <listitem>
+    *   <para>
+    *   #guint64
+    *   <classname>&quot;num-pushed&quot;</classname>:
+    *   the number of packets pushed out.
+    *   </para>
+    * </listitem>
+    * <listitem>
+    *   <para>
+    *   #guint64
+    *   <classname>&quot;num-lost&quot;</classname>:
+    *   the number of packets considered lost.
+    *   </para>
+    * </listitem>
+    * <listitem>
+    *   <para>
+    *   #guint64
+    *   <classname>&quot;num-late&quot;</classname>:
+    *   the number of packets arriving too late.
+    *   </para>
+    * </listitem>
+    * <listitem>
+    *   <para>
+    *   #guint64
+    *   <classname>&quot;num-duplicates&quot;</classname>:
+    *   the number of duplicate packets.
+    *   </para>
+    * </listitem>
+    * <listitem>
+    *   <para>
+    *   #guint64
+    *   <classname>&quot;rtx-count&quot;</classname>:
+    *   the number of retransmissions requested.
+    *   </para>
+    * </listitem>
+    * <listitem>
+    *   <para>
+    *   #guint64
+    *   <classname>&quot;rtx-success-count&quot;</classname>:
+    *   the number of successful retransmissions.
+    *   </para>
+    * </listitem>
+    * <listitem>
+    *   <para>
+    *   #gdouble
+    *   <classname>&quot;rtx-per-packet&quot;</classname>:
+    *   average number of RTX per packet.
+    *   </para>
+    * </listitem>
+    * <listitem>
+    *   <para>
+    *   #guint64
+    *   <classname>&quot;rtx-rtt&quot;</classname>:
+    *   average round trip time per RTX.
+    *   </para>
+    * </listitem>
+    * </itemizedlist>
+    *
+    * Since: 1.4
+    */
   g_object_class_install_property (gobject_class, PROP_STATS,
       g_param_spec_boxed ("stats", "Statistics",
           "Various statistics", GST_TYPE_STRUCTURE,
           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 
-  /**
-   * GstRtpJitterBuffer:max-rtcp-rtp-time-diff
-   *
-   * The maximum amount of time in ms that the RTP time in the RTCP SRs
-   * is allowed to be ahead of the last RTP packet we received. Use
-   * -1 to disable ignoring of RTCP packets.
-   *
-   * Since: 1.8
-   */
+   /**
+    * GstRtpJitterBuffer:max-rtcp-rtp-time-diff
+    *
+    * The maximum amount of time in ms that the RTP time in the RTCP SRs
+    * is allowed to be ahead of the last RTP packet we received. Use
+    * -1 to disable ignoring of RTCP packets.
+    *
+    * Since: 1.8
+    */
   g_object_class_install_property (gobject_class, PROP_MAX_RTCP_RTP_TIME_DIFF,
       g_param_spec_int ("max-rtcp-rtp-time-diff", "Max RTCP RTP Time Diff",
           "Maximum amount of time in ms that the RTP time in RTCP SRs "
@@ -872,66 +875,66 @@ gst_rtp_jitter_buffer_class_init (GstRtpJitterBufferClass * klass)
           "offset to system time in seconds to fit the gettimeofday timestamp into uint32 rtp timestamp",
           0, G_MAXUINT, 0, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
-  /**
-   * GstRtpJitterBuffer::request-pt-map:
-   * @buffer: the object which received the signal
-   * @pt: the pt
-   *
-   * Request the payload type as #GstCaps for @pt.
-   */
+   /**
+    * GstRtpJitterBuffer::request-pt-map:
+    * @buffer: the object which received the signal
+    * @pt: the pt
+    *
+    * Request the payload type as #GstCaps for @pt.
+    */
   gst_rtp_jitter_buffer_signals[SIGNAL_REQUEST_PT_MAP] =
       g_signal_new ("request-pt-map", G_TYPE_FROM_CLASS (klass),
       G_SIGNAL_RUN_LAST, G_STRUCT_OFFSET (GstRtpJitterBufferClass,
           request_pt_map), NULL, NULL, g_cclosure_marshal_generic,
       GST_TYPE_CAPS, 1, G_TYPE_UINT);
-  /**
-   * GstRtpJitterBuffer::handle-sync:
-   * @buffer: the object which received the signal
-   * @struct: a GstStructure containing sync values.
-   *
-   * Be notified of new sync values.
-   */
+   /**
+    * GstRtpJitterBuffer::handle-sync:
+    * @buffer: the object which received the signal
+    * @struct: a GstStructure containing sync values.
+    *
+    * Be notified of new sync values.
+    */
   gst_rtp_jitter_buffer_signals[SIGNAL_HANDLE_SYNC] =
       g_signal_new ("handle-sync", G_TYPE_FROM_CLASS (klass),
       G_SIGNAL_RUN_LAST, G_STRUCT_OFFSET (GstRtpJitterBufferClass,
           handle_sync), NULL, NULL, g_cclosure_marshal_VOID__BOXED,
       G_TYPE_NONE, 1, GST_TYPE_STRUCTURE | G_SIGNAL_TYPE_STATIC_SCOPE);
 
-  /**
-   * GstRtpJitterBuffer::on-npt-stop:
-   * @buffer: the object which received the signal
-   *
-   * Signal that the jitterbufer has pushed the RTP packet that corresponds to
-   * the npt-stop position.
-   */
+   /**
+    * GstRtpJitterBuffer::on-npt-stop:
+    * @buffer: the object which received the signal
+    *
+    * Signal that the jitterbufer has pushed the RTP packet that corresponds to
+    * the npt-stop position.
+    */
   gst_rtp_jitter_buffer_signals[SIGNAL_ON_NPT_STOP] =
       g_signal_new ("on-npt-stop", G_TYPE_FROM_CLASS (klass),
       G_SIGNAL_RUN_LAST, G_STRUCT_OFFSET (GstRtpJitterBufferClass,
           on_npt_stop), NULL, NULL, g_cclosure_marshal_VOID__VOID,
       G_TYPE_NONE, 0, G_TYPE_NONE);
 
-  /**
-   * GstRtpJitterBuffer::clear-pt-map:
-   * @buffer: the object which received the signal
-   *
-   * Invalidate the clock-rate as obtained with the
-   * #GstRtpJitterBuffer::request-pt-map signal.
-   */
+   /**
+    * GstRtpJitterBuffer::clear-pt-map:
+    * @buffer: the object which received the signal
+    *
+    * Invalidate the clock-rate as obtained with the
+    * #GstRtpJitterBuffer::request-pt-map signal.
+    */
   gst_rtp_jitter_buffer_signals[SIGNAL_CLEAR_PT_MAP] =
       g_signal_new ("clear-pt-map", G_TYPE_FROM_CLASS (klass),
       G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
       G_STRUCT_OFFSET (GstRtpJitterBufferClass, clear_pt_map), NULL, NULL,
       g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0, G_TYPE_NONE);
 
-  /**
-   * GstRtpJitterBuffer::set-active:
-   * @buffer: the object which received the signal
-   *
-   * Start pushing out packets with the given base time. This signal is only
-   * useful in buffering mode.
-   *
-   * Returns: the time of the last pushed packet.
-   */
+   /**
+    * GstRtpJitterBuffer::set-active:
+    * @buffer: the object which received the signal
+    *
+    * Start pushing out packets with the given base time. This signal is only
+    * useful in buffering mode.
+    *
+    * Returns: the time of the last pushed packet.
+    */
   gst_rtp_jitter_buffer_signals[SIGNAL_SET_ACTIVE] =
       g_signal_new ("set-active", G_TYPE_FROM_CLASS (klass),
       G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
@@ -3419,15 +3422,26 @@ pop_and_push_next (GstRtpJitterBuffer * jitterbuffer, guint seqnum)
           + (guint64) now.tv_usec * 1000);
 
       GST_INFO_OBJECT (jitterbuffer,
-          "now: %" GST_TIME_FORMAT " RTP Timestamp (unscaled) %" GST_TIME_FORMAT
-          ", deadline %" GST_TIME_FORMAT "\t%s", GST_TIME_ARGS (now_gst_time),
-          GST_TIME_ARGS (rtp_timestamp_unscaled), GST_TIME_ARGS (deadline),
-          now_gst_time >= deadline ? "MISS" : "HIT");
+          "now: %" GST_TIME_FORMAT ", deadline %" GST_TIME_FORMAT
+          "\t(%+4ldms) %s\t%u", GST_TIME_ARGS (now_gst_time),
+          GST_TIME_ARGS (deadline),
+          ((long int) now_gst_time - (long int) deadline) / 1000000,
+          now_gst_time >= deadline ? "MISS" : "HIT", priv->systime_offset);
+
+      priv->avg_delay_pushed = (priv->avg_delay_pushed *
+          (priv->num_deadline_hit + priv->num_deadline_missed) +
+          (now_gst_time - rtp_timestamp_unscaled)) /
+          (priv->num_deadline_hit + priv->num_deadline_missed + 1);
+      /* moving average: A[n+1] = (X[n+1] + n*A[n]) / n+1 */
 
       if (now_gst_time >= deadline)
         priv->num_deadline_missed++;
-      else
+      else {
+        priv->avg_delay_hit = (priv->avg_delay_hit * priv->num_deadline_hit +
+            (now_gst_time - rtp_timestamp_unscaled)) / (priv->num_deadline_hit +
+            1);
         priv->num_deadline_hit++;
+      }
 
       break;
     case ITEM_TYPE_LOST:
@@ -3607,11 +3621,11 @@ get_rtx_retry_period (GstRtpJitterBufferPrivate * priv,
 }
 
 /*
-  1. For *larger* rtx-rtt, weigh a new measurement as before (1/8th)
-  2. For *smaller* rtx-rtt, be a bit more conservative and weigh a bit less (1/16th)
-  3. For very large measurements (> avg * 2), consider them "outliers"
-     and count them a lot less (1/48th)
-*/
+   1. For *larger* rtx-rtt, weigh a new measurement as before (1/8th)
+   2. For *smaller* rtx-rtt, be a bit more conservative and weigh a bit less (1/16th)
+   3. For very large measurements (> avg * 2), consider them "outliers"
+   and count them a lot less (1/48th)
+   */
 static void
 update_avg_rtx_rtt (GstRtpJitterBufferPrivate * priv, GstClockTime rtt)
 {
@@ -4744,6 +4758,8 @@ gst_rtp_jitter_buffer_create_stats (GstRtpJitterBuffer * jbuf)
       "num-deadline-hit", G_TYPE_UINT64, priv->num_deadline_hit,
       /* "ddr", G_TYPE_DOUBLE, (gdouble) ((gdouble)priv->within_deadline_cnt / */
       /* (gdouble)(priv->within_deadline_cnt + priv->missed_deadline_cnt)), NULL); */
+      "avg-delay-hit", G_TYPE_UINT64, priv->avg_delay_hit,
+      "avg-delay-pushed", G_TYPE_UINT64, priv->avg_delay_pushed,
       "avg-jitter", G_TYPE_UINT64, priv->avg_jitter,
       "rtx-count", G_TYPE_UINT64, priv->num_rtx_requests,
       "rtx-success-count", G_TYPE_UINT64, priv->num_rtx_success,
