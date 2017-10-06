@@ -150,7 +150,7 @@ enum
 #define DEFAULT_MAX_RTCP_RTP_TIME_DIFF 1000
 #define DEFAULT_MAX_DROPOUT_TIME    60000
 #define DEFAULT_MAX_MISORDER_TIME   2000
-#define DEFAULT_DEADLINE_US         300000
+#define DEFAULT_DEADLINE_US         0
 #define DEFAULT_RFC7273_SYNC        FALSE
 
 #define DEFAULT_AUTO_RTX_DELAY (20 * GST_MSECOND)
@@ -364,9 +364,12 @@ struct _GstRtpJitterBufferPrivate
   guint64 num_lost;
   guint64 num_late;
   guint64 num_duplicates;
+  guint64 num_all_duplicates;
   guint64 num_old_dropped;
-  guint64 num_deadline_missed;
-  guint64 num_deadline_hit;
+  guint64 num_deadline_missed_in;
+  guint64 num_deadline_missed_out;
+  guint64 num_deadline_hit_in;
+  guint64 num_deadline_hit_out;
   guint64 num_rtx_requests;
   guint64 num_rtx_success;
   guint64 num_rtx_failed;
@@ -374,8 +377,10 @@ struct _GstRtpJitterBufferPrivate
   guint64 avg_rtx_rtt;
   RTPPacketRateCtx packet_rate_ctx;
 
-  guint64 avg_delay_hit;
+  guint64 avg_delay_hit_in;
+  guint64 avg_delay_hit_out;
   guint64 avg_delay_pushed;
+  guint64 avg_delay_received;
 
   /* for the jitter */
   GstClockTime last_dts;
@@ -2440,7 +2445,8 @@ calculate_packet_spacing (GstRtpJitterBuffer * jitterbuffer, guint32 rtptime,
       else
         priv->packet_spacing = new_packet_spacing;
 
-      GST_DEBUG_OBJECT (jitterbuffer,
+      // TODO have a look at this
+      GST_INFO_OBJECT (jitterbuffer,
           "new packet spacing %" GST_TIME_FORMAT
           " old packet spacing %" GST_TIME_FORMAT
           " combined to %" GST_TIME_FORMAT,
@@ -2834,6 +2840,7 @@ gst_rtp_jitter_buffer_chain (GstPad * pad, GstObject * parent,
   TimerData *timer = NULL;
 
   jitterbuffer = GST_RTP_JITTER_BUFFER_CAST (parent);
+  RTPJitterBuffer *jbuf = jitterbuffer->priv->jbuf;
 
   priv = jitterbuffer->priv;
 
@@ -2964,6 +2971,7 @@ gst_rtp_jitter_buffer_chain (GstPad * pad, GstObject * parent,
      * possible moment to push this buffer, maybe we get an earlier seqnum
      * while we wait */
     set_timer (jitterbuffer, TIMER_TYPE_DEADLINE, seqnum, pts);
+    // TODO calc exact deadline
 
     do_next_seqnum = TRUE;
     /* take rtptime and pts to calculate packet spacing */
@@ -3027,13 +3035,52 @@ gst_rtp_jitter_buffer_chain (GstPad * pad, GstObject * parent,
         calculate_expected (jitterbuffer, expected, seqnum, pts, gap);
         do_next_seqnum = TRUE;
       } else {
-        GST_DEBUG_OBJECT (jitterbuffer, "old packet received");
+        GST_INFO_OBJECT (jitterbuffer,
+            "old (all dupl?) packet received: seq: %u", seqnum);
         do_next_seqnum = FALSE;
+        priv->num_all_duplicates++;
       }
 
       /* reset spacing estimation when gap */
       priv->ips_rtptime = -1;
       priv->ips_pts = GST_CLOCK_TIME_NONE;
+    }
+
+    if (priv->deadline > 0) {
+      /* check if the deadline as considered for DPR was missed */
+      GstClockTime rtp_timestamp_unscaled =
+          gst_util_uint64_scale_int ((guint64) rtptime,
+          GST_SECOND, (gint) rtp_jitter_buffer_get_clock_rate (jbuf));
+      GstClockTime deadline = rtp_timestamp_unscaled + priv->deadline * 1000;
+
+      struct timeval now;
+      gettimeofday (&now, NULL);
+      now.tv_sec -= priv->systime_offset;
+      GstClockTime now_gst_time = (guint64) ((guint64) now.tv_sec * GST_SECOND
+          + (guint64) now.tv_usec * 1000);
+
+      GST_INFO_OBJECT (jitterbuffer,
+          "now: %" GST_TIME_FORMAT ", deadline %" GST_TIME_FORMAT
+          "\t(%+4ldms) IN: %s\t%s", GST_TIME_ARGS (now_gst_time),
+          GST_TIME_ARGS (deadline),
+          ((long int) now_gst_time - (long int) deadline) / 1000000,
+          now_gst_time >= deadline ? "MISS" : "HIT", gap < 0 ? "(DUPL)" : "");
+
+      if (now_gst_time >= deadline)
+        priv->num_deadline_missed_in++;
+      else {
+        priv->avg_delay_hit_in =
+            (priv->avg_delay_hit_in * priv->num_deadline_hit_in +
+            (now_gst_time -
+                rtp_timestamp_unscaled)) / (priv->num_deadline_hit_in + 1);
+        priv->num_deadline_hit_in++;
+      }
+
+      priv->avg_delay_received = (priv->avg_delay_received *
+          (priv->num_deadline_hit_in + priv->num_deadline_missed_in) +
+          (now_gst_time - rtp_timestamp_unscaled)) /
+          (priv->num_deadline_hit_in + priv->num_deadline_missed_in + 1);
+      /* moving average: A[n+1] = (X[n+1] + n*A[n]) / n+1 */
     }
   }
 
@@ -3409,38 +3456,41 @@ pop_and_push_next (GstRtpJitterBuffer * jitterbuffer, guint seqnum)
 
       JBUF_LOCK_CHECK (priv, out_flushing);
 
-      /* check if the deadline as considered for DPR was missed */
-      GstClockTime rtp_timestamp_unscaled =
-          gst_util_uint64_scale_int ((guint64) item->rtptime,
-          GST_SECOND, (gint) rtp_jitter_buffer_get_clock_rate (jbuf));
-      GstClockTime deadline = rtp_timestamp_unscaled + priv->deadline * 1000;
+      if (priv->deadline > 0) {
+        /* check if the deadline as considered for DPR was missed */
+        GstClockTime rtp_timestamp_unscaled =
+            gst_util_uint64_scale_int ((guint64) item->rtptime,
+            GST_SECOND, (gint) rtp_jitter_buffer_get_clock_rate (jbuf));
+        GstClockTime deadline = rtp_timestamp_unscaled + priv->deadline * 1000;
 
-      struct timeval now;
-      gettimeofday (&now, NULL);
-      now.tv_sec -= priv->systime_offset;
-      GstClockTime now_gst_time = (guint64) ((guint64) now.tv_sec * GST_SECOND
-          + (guint64) now.tv_usec * 1000);
+        struct timeval now;
+        gettimeofday (&now, NULL);
+        now.tv_sec -= priv->systime_offset;
+        GstClockTime now_gst_time = (guint64) ((guint64) now.tv_sec * GST_SECOND
+            + (guint64) now.tv_usec * 1000);
 
-      GST_INFO_OBJECT (jitterbuffer,
-          "now: %" GST_TIME_FORMAT ", deadline %" GST_TIME_FORMAT
-          "\t(%+4ldms) %s\t%u", GST_TIME_ARGS (now_gst_time),
-          GST_TIME_ARGS (deadline),
-          ((long int) now_gst_time - (long int) deadline) / 1000000,
-          now_gst_time >= deadline ? "MISS" : "HIT", priv->systime_offset);
+        GST_INFO_OBJECT (jitterbuffer,
+            "now: %" GST_TIME_FORMAT ", deadline %" GST_TIME_FORMAT
+            "\t(%+4ldms) OUT: %s\t%u", GST_TIME_ARGS (now_gst_time),
+            GST_TIME_ARGS (deadline),
+            ((long int) now_gst_time - (long int) deadline) / 1000000,
+            now_gst_time >= deadline ? "MISS" : "HIT", priv->systime_offset);
 
-      priv->avg_delay_pushed = (priv->avg_delay_pushed *
-          (priv->num_deadline_hit + priv->num_deadline_missed) +
-          (now_gst_time - rtp_timestamp_unscaled)) /
-          (priv->num_deadline_hit + priv->num_deadline_missed + 1);
-      /* moving average: A[n+1] = (X[n+1] + n*A[n]) / n+1 */
+        if (now_gst_time >= deadline)
+          priv->num_deadline_missed_out++;
+        else {
+          priv->avg_delay_hit_out =
+              (priv->avg_delay_hit_out * priv->num_deadline_hit_out +
+              (now_gst_time -
+                  rtp_timestamp_unscaled)) / (priv->num_deadline_hit_out + 1);
+          priv->num_deadline_hit_out++;
+        }
 
-      if (now_gst_time >= deadline)
-        priv->num_deadline_missed++;
-      else {
-        priv->avg_delay_hit = (priv->avg_delay_hit * priv->num_deadline_hit +
-            (now_gst_time - rtp_timestamp_unscaled)) / (priv->num_deadline_hit +
-            1);
-        priv->num_deadline_hit++;
+        priv->avg_delay_pushed = (priv->avg_delay_pushed *
+            (priv->num_deadline_hit_out + priv->num_deadline_missed_out) +
+            (now_gst_time - rtp_timestamp_unscaled)) /
+            (priv->num_deadline_hit_out + priv->num_deadline_missed_out + 1);
+        /* moving average: A[n+1] = (X[n+1] + n*A[n]) / n+1 */
       }
 
       break;
@@ -4473,7 +4523,7 @@ gst_rtp_jitter_buffer_set_property (GObject * object,
       /* post message if latency changed, this will inform the parent pipeline
        * that a latency reconfiguration is possible/needed. */
       if (new_latency != old_latency) {
-        GST_DEBUG_OBJECT (jitterbuffer, "latency changed to: %" GST_TIME_FORMAT,
+        GST_INFO_OBJECT (jitterbuffer, "latency changed to: %" GST_TIME_FORMAT,
             GST_TIME_ARGS (new_latency * GST_MSECOND));
 
         gst_element_post_message (GST_ELEMENT_CAST (jitterbuffer),
@@ -4753,12 +4803,17 @@ gst_rtp_jitter_buffer_create_stats (GstRtpJitterBuffer * jbuf)
       "num-lost", G_TYPE_UINT64, priv->num_lost,
       "num-late", G_TYPE_UINT64, priv->num_late,
       "num-duplicates", G_TYPE_UINT64, priv->num_duplicates,
+      "num-all-duplicates", G_TYPE_UINT64, priv->num_all_duplicates,
       "num-old-dropped", G_TYPE_UINT64, priv->num_old_dropped,
-      "num-deadline-missed", G_TYPE_UINT64, priv->num_deadline_missed,
-      "num-deadline-hit", G_TYPE_UINT64, priv->num_deadline_hit,
+      "num-deadline-missed-in", G_TYPE_UINT64, priv->num_deadline_missed_in,
+      "num-deadline-missed-out", G_TYPE_UINT64, priv->num_deadline_missed_out,
+      "num-deadline-hit-in", G_TYPE_UINT64, priv->num_deadline_hit_in,
+      "num-deadline-hit-out", G_TYPE_UINT64, priv->num_deadline_hit_out,
       /* "ddr", G_TYPE_DOUBLE, (gdouble) ((gdouble)priv->within_deadline_cnt / */
       /* (gdouble)(priv->within_deadline_cnt + priv->missed_deadline_cnt)), NULL); */
-      "avg-delay-hit", G_TYPE_UINT64, priv->avg_delay_hit,
+      "avg-delay-hit-in", G_TYPE_UINT64, priv->avg_delay_hit_out,
+      "avg-delay-hit-out", G_TYPE_UINT64, priv->avg_delay_hit_out,
+      "avg-delay-received", G_TYPE_UINT64, priv->avg_delay_received,
       "avg-delay-pushed", G_TYPE_UINT64, priv->avg_delay_pushed,
       "avg-jitter", G_TYPE_UINT64, priv->avg_jitter,
       "rtx-count", G_TYPE_UINT64, priv->num_rtx_requests,
