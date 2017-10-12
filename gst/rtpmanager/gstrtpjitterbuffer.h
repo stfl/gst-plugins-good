@@ -28,6 +28,8 @@
 
 #include <gst/gst.h>
 #include <gst/rtp/gstrtpbuffer.h>
+#include <glib.h>
+#include <glib/gstdio.h>
 
 G_BEGIN_DECLS
 
@@ -62,6 +64,8 @@ struct _GstRtpJitterBuffer
 
   /*< private >*/
   GstRtpJitterBufferPrivate *priv; /* FIXME: remove? */
+  FILE* experiment_trace_in;
+  FILE* experiment_trace_out;
 };
 
 struct _GstRtpJitterBufferClass

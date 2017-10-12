@@ -1,5 +1,13 @@
+#!/bin/bash
+
 PATH_PLUGINS_BASE=/home/slendl/Projects/gst/gst-plugins-base/build
 PATH_PLUGINS_GOOD=/home/slendl/Projects/gst/gst-plugins-good/build
+
+##### setup build gst-plugins-base
+# meson configure -D prefix=/usr -D disable_gtkdoc=true 
+
+##### setup build gst-plugins-good
+# meson configure -D prefix=/usr
 
 (cd $PATH_PLUGINS_BASE; ninja && sudo ninja install >/dev/null)
 if [[ $? != 0 ]]; then
