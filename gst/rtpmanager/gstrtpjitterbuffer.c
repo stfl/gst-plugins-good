@@ -4653,9 +4653,7 @@ gst_rtp_jitter_buffer_set_property (GObject * object,
       // only open the files when deadline is set
       // TODO add run_id to file_name
       jitterbuffer->experiment_trace_in =
-          g_fopen
-          ("/home/slendl/Projects/gst/gst-sctp/results/experiment_trace_in.csv",
-          "w+");
+          g_fopen ("/tmp/gst-sctp-results/experiment_trace_in.csv", "w+");
       if (jitterbuffer->experiment_trace_in == NULL) {
         GST_ERROR_OBJECT (jitterbuffer, "could not open file for writing: %s",
             strerror (errno));
@@ -4664,9 +4662,7 @@ gst_rtp_jitter_buffer_set_property (GObject * object,
           "seqnum;now;rtptime;deadline;packet_len;payload_len\n");
 
       jitterbuffer->experiment_trace_out =
-          g_fopen
-          ("/home/slendl/Projects/gst/gst-sctp/results/experiment_trace_out.csv",
-          "w+");
+          g_fopen ("/tmp/gst-sctp-results/experiment_trace_out.csv", "w+");
       if (jitterbuffer->experiment_trace_out == NULL) {
         GST_ERROR_OBJECT (jitterbuffer, "could not open file for writing: %s",
             strerror (errno));
